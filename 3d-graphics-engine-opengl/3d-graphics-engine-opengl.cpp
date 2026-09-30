@@ -1,9 +1,10 @@
 // 3D graphics engine OpenGL variant
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
+#define GLEW_STATIC
 #include <string>
-
+#include <GL/glew.h>
+#include <SDL3/SDL.h>
+#include <iostream>
 
 constexpr int kScreenWidth{ 640 };
 constexpr int kScreenHeight{ 480 };
@@ -11,10 +12,7 @@ constexpr int kScreenHeight{ 480 };
 //Window
 SDL_Window* gWindow{ nullptr };
 
-//Surface in de window
-SDL_Surface* gScreenSurface{ nullptr };
-
-SDL_Surface* gImgSurface{ nullptr };
+SDL_GLContext glContext;
 
 bool init()
 {
@@ -28,31 +26,29 @@ bool init()
     }
     else
     {
+        // OpenGL attributen definiëren
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3); // OpenGL versie
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); // Enkele buffer
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); // Pixel buffer grootte
+
         //Window maken
-        if (gWindow = SDL_CreateWindow("OpenGL", kScreenWidth, kScreenHeight, 0); gWindow == nullptr)
+        if (gWindow = SDL_CreateWindow("OpenGL", kScreenWidth, kScreenHeight, SDL_WINDOW_OPENGL); gWindow == nullptr)
         {
             SDL_Log("SDL error: %s\n", SDL_GetError());
             success = false;
         }
-        else
-        {
-            gScreenSurface = SDL_GetWindowSurface(gWindow);
+        else {
+            // OpenGL context
+            SDL_GLContext glContext = SDL_GL_CreateContext(gWindow);
+            if (!glContext) {
+                std::cerr << "OpenGL Context Error: " << SDL_GetError() << "\n";
+                SDL_DestroyWindow(gWindow);
+                SDL_Quit();
+                return -1;
+            }
         }
-    }
-
-    return success;
-}
-
-bool loadMedia()
-{
-    bool success{ true };
-
-    //Image laden in img surface
-    std::string imagePath{ "test.bmp" };
-    if (gImgSurface = SDL_LoadBMP(imagePath.c_str()); gImgSurface == nullptr)
-    {
-        SDL_Log("SDL Error: %s\n", imagePath.c_str(), SDL_GetError());
-        success = false;
     }
 
     return success;
@@ -60,13 +56,8 @@ bool loadMedia()
 
 void close()
 {
-    SDL_DestroySurface(gImgSurface);
-    gImgSurface = nullptr;
-
+    SDL_GL_DestroyContext(glContext);
     SDL_DestroyWindow(gWindow);
-    gWindow = nullptr;
-    gScreenSurface = nullptr;
-
     SDL_Quit();
 }
 
@@ -83,10 +74,12 @@ int main(int argc, char* args[])
     }
     else
     {
-        if (loadMedia() == false)
-        {
-            SDL_Log("Fout met img inladen.\n");
-            exitCode = 2;
+        SDL_GLContext glContext = SDL_GL_CreateContext(gWindow);
+        if (!glContext) {
+            std::cerr << "OpenGL Context Error: " << SDL_GetError() << "\n";
+            SDL_DestroyWindow(gWindow);
+            SDL_Quit();
+            return -1;
         }
         else
         {
@@ -107,14 +100,13 @@ int main(int argc, char* args[])
                     }
                 }
 
-                //Main surface wit
-                SDL_FillSurfaceRect(gScreenSurface, nullptr, SDL_MapSurfaceRGB(gScreenSurface, 0xFF, 0xFF, 0xFF));
+                glClearColor(0.1f, 0.1f, 0.5f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-                //Img surface op main surface blitten
-                SDL_BlitSurface(gImgSurface, nullptr, gScreenSurface, nullptr);
+                // Draw calls hier
 
-                //Update
-                SDL_UpdateWindowSurface(gWindow);
+                // Swap buffer naar scherm
+                SDL_GL_SwapWindow(gWindow);
             }
         }
     }
