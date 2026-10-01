@@ -46,7 +46,14 @@ bool init()
                 std::cerr << "OpenGL Context Error: " << SDL_GetError() << "\n";
                 SDL_DestroyWindow(gWindow);
                 SDL_Quit();
-                return -1;
+                return false;
+            }
+
+            // GLEW initialiseren
+            glewExperimental = GL_TRUE;
+            GLenum glewErrorCode = glewInit();
+            if (GLEW_OK != glewErrorCode) {
+                std::cerr << "GLEW init error: " << glewGetErrorString(glewErrorCode) << "\n";
             }
         }
     }
@@ -88,6 +95,12 @@ int main(int argc, char* args[])
             SDL_Event e;
             SDL_zero(e);
 
+            // Maak de VAO aan
+            GLuint vertexArrayID;
+            glGenVertexArrays(1, &vertexArrayID);
+            glBindVertexArray(vertexArrayID);
+            std::cout << "VAO aangemaakt met id: " << std::to_string(vertexArrayID) << "\n";
+
             //Main loop
             while (quit == false)
             {
@@ -100,11 +113,11 @@ int main(int argc, char* args[])
                     }
                 }
 
-                glClearColor(0.1f, 0.1f, 0.5f, 1.0f);
+                glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 // Draw calls hier
-
+                
                 // Swap buffer naar scherm
                 SDL_GL_SwapWindow(gWindow);
             }
