@@ -14,6 +14,13 @@ SDL_Window* gWindow{ nullptr };
 
 SDL_GLContext glContext;
 
+// Test Data
+static const GLfloat vertexBufferData[] = {
+   -1.0f, -1.0f, 0.0f,
+   1.0f, -1.0f, 0.0f,
+   0.0f,  1.0f, 0.0f,
+};
+
 bool init()
 {
     bool success{ true };
@@ -100,6 +107,12 @@ int main(int argc, char* args[])
             glGenVertexArrays(1, &vertexArrayID);
             glBindVertexArray(vertexArrayID);
             std::cout << "VAO aangemaakt met id: " << std::to_string(vertexArrayID) << "\n";
+
+            // Maak en VBO aan
+            GLuint vertexBufferID;
+            glGenBuffers(1, &vertexBufferID);
+            glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertexBufferData), vertexBufferData, GL_STATIC_DRAW);
 
             //Main loop
             while (quit == false)
