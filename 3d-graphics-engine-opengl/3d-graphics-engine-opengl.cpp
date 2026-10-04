@@ -6,6 +6,8 @@
 #include <SDL3/SDL.h>
 #include <iostream>
 
+#include "shader_loader.cpp"
+
 constexpr int kScreenWidth{ 640 };
 constexpr int kScreenHeight{ 480 };
 
@@ -114,6 +116,8 @@ int main(int argc, char* args[])
             glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertexBufferData), vertexBufferData, GL_STATIC_DRAW);
 
+            // Laad de shader in een shader program en sla de ID op.
+            GLuint programID = LoadShaders("vertex_shader.vert", "fragment_shader.frag");
             //Main loop
             while (quit == false)
             {

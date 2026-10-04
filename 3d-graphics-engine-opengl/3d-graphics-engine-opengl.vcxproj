@@ -160,9 +160,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="3d-graphics-engine-opengl.cpp" />
+    <ClCompile Include="shader_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="test.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="fragment_shader.frag" />
+    <None Include="vertex_shader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
