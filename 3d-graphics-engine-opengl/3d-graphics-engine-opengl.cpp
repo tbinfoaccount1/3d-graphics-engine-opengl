@@ -90,54 +90,45 @@ int main(int argc, char* args[])
     }
     else
     {
-        SDL_GLContext glContext = SDL_GL_CreateContext(gWindow);
-        if (!glContext) {
-            std::cerr << "OpenGL Context Error: " << SDL_GetError() << "\n";
-            SDL_DestroyWindow(gWindow);
-            SDL_Quit();
-            return -1;
-        }
-        else
+        bool quit{ false };
+
+        SDL_Event e;
+        SDL_zero(e);
+
+        // Maak de VAO aan
+        GLuint vertexArrayID;
+        glGenVertexArrays(1, &vertexArrayID);
+        glBindVertexArray(vertexArrayID);
+        std::cout << "VAO aangemaakt met id: " << std::to_string(vertexArrayID) << "\n";
+
+        // Maak en VBO aan
+        GLuint vertexBufferID;
+        glGenBuffers(1, &vertexBufferID);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertexBufferData), vertexBufferData, GL_STATIC_DRAW);
+
+        // Laad de shader in een shader program en sla de ID op.
+        GLuint programID = LoadShaders("vertex_shader.vert", "fragment_shader.frag");
+        //Main loop
+        while (quit == false)
         {
-            bool quit{ false };
-
-            SDL_Event e;
-            SDL_zero(e);
-
-            // Maak de VAO aan
-            GLuint vertexArrayID;
-            glGenVertexArrays(1, &vertexArrayID);
-            glBindVertexArray(vertexArrayID);
-            std::cout << "VAO aangemaakt met id: " << std::to_string(vertexArrayID) << "\n";
-
-            // Maak en VBO aan
-            GLuint vertexBufferID;
-            glGenBuffers(1, &vertexBufferID);
-            glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertexBufferData), vertexBufferData, GL_STATIC_DRAW);
-
-            // Laad de shader in een shader program en sla de ID op.
-            GLuint programID = LoadShaders("vertex_shader.vert", "fragment_shader.frag");
-            //Main loop
-            while (quit == false)
+            while (SDL_PollEvent(&e) == true)
             {
-                while (SDL_PollEvent(&e) == true)
+                if (e.type == SDL_EVENT_QUIT)
                 {
-                    if (e.type == SDL_EVENT_QUIT)
-                    {
-                        //Quit als quit event
-                        quit = true;
-                    }
+                    //Quit als quit event
+                    quit = true;
                 }
-
-                glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-                // Draw calls hier
-                
-                // Swap buffer naar scherm
-                SDL_GL_SwapWindow(gWindow);
             }
+
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Draw calls hier
+            glUseProgram(programID);
+                
+            // Swap buffer naar scherm
+            SDL_GL_SwapWindow(gWindow);
         }
     }
 
