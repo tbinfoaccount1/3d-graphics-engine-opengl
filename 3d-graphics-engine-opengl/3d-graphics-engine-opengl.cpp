@@ -5,8 +5,10 @@
 #include <GL/glew.h>
 #include <SDL3/SDL.h>
 #include <iostream>
+#include <glm.hpp>
 
 #include "shader_loader.cpp"
+#include "obj_loader.h"
 
 constexpr int kScreenWidth{ 640 };
 constexpr int kScreenHeight{ 480 };
@@ -16,12 +18,11 @@ SDL_Window* gWindow{ nullptr };
 
 SDL_GLContext glContext;
 
-// Test Data
-static const GLfloat vertexBufferData[] = {
-   -1.0f, -1.0f, 0.0f,
-   1.0f, -1.0f, 0.0f,
-   0.0f,  1.0f, 0.0f,
-};
+ObjData objData = loadObjFile("C:\\Users\\s032010061601\\Downloads\\cube.obj");
+std::vector<glm::vec3> vertices = objData.vertices;
+std::vector<glm::vec2> uvs = objData.textureCoords;
+std::vector<glm::vec3> normals = objData.normals;
+std::vector<Material> materials = objData.materials;
 
 bool init()
 {
@@ -105,7 +106,7 @@ int main(int argc, char* args[])
         GLuint vertexBufferID;
         glGenBuffers(1, &vertexBufferID);
         glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertexBufferData), vertexBufferData, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), &vertices[0], GL_STATIC_DRAW);
 
         // Laad de shader in een shader program en sla de ID op.
         GLuint programID = LoadShaders("vertex_shader.vert", "fragment_shader.frag");
@@ -126,7 +127,7 @@ int main(int argc, char* args[])
 
             // Draw calls hier
             glUseProgram(programID);
-                
+
             // Swap buffer naar scherm
             SDL_GL_SwapWindow(gWindow);
         }

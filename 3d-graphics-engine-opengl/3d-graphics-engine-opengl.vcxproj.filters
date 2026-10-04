@@ -21,6 +21,9 @@
     <ClCompile Include="shader_loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="obj_loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="test.bmp">
@@ -30,5 +33,10 @@
   <ItemGroup>
     <None Include="vertex_shader.vert" />
     <None Include="fragment_shader.frag" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="obj_loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
