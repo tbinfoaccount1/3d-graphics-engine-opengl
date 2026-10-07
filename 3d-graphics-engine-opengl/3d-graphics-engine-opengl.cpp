@@ -65,6 +65,10 @@ bool init()
             if (GLEW_OK != glewErrorCode) {
                 std::cerr << "GLEW init error: " << glewGetErrorString(glewErrorCode) << "\n";
             }
+
+            // Z-buffer
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
         }
     }
 
