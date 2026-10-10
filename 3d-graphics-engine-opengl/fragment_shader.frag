@@ -7,10 +7,10 @@ in vec2 UV;
 out vec3 color;
 
 // Constante texture sampler
-uniform sampler2D myTextureSampler;
+uniform sampler2D textureSampler;
 
 void main(){
 
 	// Output kleur is kleur van texture op UV.
-	color = texture( myTextureSampler, UV ).rgb;
+	color = texture( textureSampler, UV ).rgb;
 }

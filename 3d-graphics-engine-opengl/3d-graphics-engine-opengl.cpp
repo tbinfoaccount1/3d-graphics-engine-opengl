@@ -5,6 +5,7 @@
 #include <GL/glew.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_image.h>
+#include <algorithm>
 #include <iostream>
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -21,7 +22,7 @@ SDL_Window* gWindow{ nullptr };
 
 SDL_GLContext glContext;
 
-ObjData objData = loadObjFile("C:\\Users\\s032010061601\\Downloads\\cube.obj");
+ObjData objData = loadObjFile("C:\\Users\\s032010061601\\Downloads\\testobj\\capsule.obj");
 std::vector<glm::vec3> vertices = objData.vertices;
 std::vector<ObjFace> faces = objData.faces;
 std::vector<glm::vec2> uvs = objData.textureCoords;
@@ -112,33 +113,75 @@ int main(int argc, char* args[])
         glBindVertexArray(vertexArrayID);
         std::cout << "VAO aangemaakt met id: " << std::to_string(vertexArrayID) << "\n";
 
-		std::vector<glm::vec3> flatVertices;
-        std::vector<glm::vec2> flatUVs;
-		std::vector<glm::vec3> flatNormals;
+        // ---
+		// Per material maken we een aparte VBO voor vertices, UVs en een texture. We flatten de mesh per materiaal index zodat we per materiaal kunnen tekenen.
 
-		// Flatten de data zodat we een VBO kunnen maken
+        size_t materialCount = std::max<size_t>(1, materials.size()); // Het aantal materialen
+		std::vector<std::vector<glm::vec3>> flatVerticesPerMaterial(materialCount); // Lijst van materialen, met elk materiaal een lijst van vertices)
+        std::vector<std::vector<glm::vec2>> flatUVsPerMaterial(materialCount); // Hetzelfde voor UVs
+
+        // Per materiaal
         for (const auto& face : objData.faces)
         {
+            int materialIndex = face.materialIndex >= 0 ? face.materialIndex : 0; // ID van materiaal
+            if (materialIndex >= static_cast<int>(materialCount))
+                materialIndex = 0;
             for (size_t i = 0; i < face.vertexIndices.size(); ++i)
             {
-                flatVertices.push_back(objData.vertices[face.vertexIndices[i]]);
+				// Per vertex van de face, push de vertex en UV naar de juiste flat vector
+                flatVerticesPerMaterial[materialIndex].push_back(objData.vertices[face.vertexIndices[i]]);
                 if (!objData.textureCoords.empty() && !face.textureCoordIndices.empty())
-                    flatUVs.push_back(objData.textureCoords[face.textureCoordIndices[i]]);
-                if (!objData.normals.empty() && !face.normalIndices.empty())
-                    flatNormals.push_back(objData.normals[face.normalIndices[i]]);
+                    flatUVsPerMaterial[materialIndex].push_back(objData.textureCoords[face.textureCoordIndices[i]]);
+                else
+                    flatUVsPerMaterial[materialIndex].push_back(glm::vec2{ 0.0f, 0.0f });
             }
         }
 
-        // Maak de VBOs aan
-        GLuint vertexBufferID;
-        glGenBuffers(1, &vertexBufferID);
-        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-        glBufferData(GL_ARRAY_BUFFER, flatVertices.size() * sizeof(glm::vec3), &flatVertices[0], GL_STATIC_DRAW);
+		// VBOs en textures per materiaal aanmaken
+        std::vector<GLuint> vertexBufferIDs(materialCount, 0);
+        std::vector<GLuint> uvBufferIDs(materialCount, 0);
+        std::vector<GLuint> textureIDs(materialCount, 0);
 
-        GLuint uvBufferID;
-        glGenBuffers(1, &uvBufferID);
-        glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
-        glBufferData(GL_ARRAY_BUFFER, flatUVs.size() * sizeof(glm::vec2), &flatUVs[0], GL_STATIC_DRAW);
+        for (size_t m = 0; m < materialCount; ++m)
+        {
+            // Voor elk materiaal:
+            if (!flatVerticesPerMaterial[m].empty())
+            {
+				// Als er vertices zijn, maak een VBO aan en upload de data
+                glGenBuffers(1, &vertexBufferIDs[m]);
+                glBindBuffer(GL_ARRAY_BUFFER, vertexBufferIDs[m]);
+                glBufferData(GL_ARRAY_BUFFER, flatVerticesPerMaterial[m].size() * sizeof(glm::vec3), flatVerticesPerMaterial[m].data(), GL_STATIC_DRAW);
+            }
+
+            if (!flatUVsPerMaterial[m].empty())
+            {
+                // Zelfde voor UVs
+                glGenBuffers(1, &uvBufferIDs[m]);
+                glBindBuffer(GL_ARRAY_BUFFER, uvBufferIDs[m]);
+                glBufferData(GL_ARRAY_BUFFER, flatUVsPerMaterial[m].size() * sizeof(glm::vec2), flatUVsPerMaterial[m].data(), GL_STATIC_DRAW);
+            }
+
+            // Maak een GL texture aan op basis van de diffuse texture van het materiaal
+            glGenTextures(1, &textureIDs[m]);
+            glBindTexture(GL_TEXTURE_2D, textureIDs[m]);
+            if (m < materials.size() && !materials[m].diffuseTexture.isEmpty())
+            {
+				// Als het materiaal een diffuse texture heeft, upload de pixels naar OpenGL
+                const Texture& tex = materials[m].diffuseTexture;
+                // 32bit RGBA
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.width, tex.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex.pixels.data());
+            }
+            else
+            {
+                // Witte pixel als er geen texture is
+                unsigned char white[4] = { 255, 255, 255, 255 };
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
+            }
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        }
 
         // Laad de shader in een shader program en sla de ID op.
         GLuint programID = LoadShaders("vertex_shader.vert", "fragment_shader.frag");
@@ -181,35 +224,46 @@ int main(int argc, char* args[])
             // Stuur naar shader
             glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
 
-            // 1rst attribute buffer : vertices
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-            glVertexAttribPointer(
-                0,                  // attribute
-                3,                  // size
-                GL_FLOAT,           // type
-                GL_FALSE,           // normalized?
-                0,                  // stride
-                (void*)0            // array buffer offset
-            );
+			// Krijg location van textureSampler uniform in fragment shader en bind de texture (unit 0) aan deze uniform
+            GLint samplerID = glGetUniformLocation(programID, "textureSampler");
+            if (samplerID != -1)
+                glUniform1i(samplerID, 0);
 
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, uvBufferID);
-            glVertexAttribPointer(
-                1,                                // attribute slot
-                2,                                // grootte
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
+            // Per materiaal: bind VBOs en texture en teken
+            for (size_t m = 0; m < vertexBufferIDs.size(); ++m)
+            {
+                if (vertexBufferIDs[m] == 0)
+                    continue;
 
-            // Teken de triangles
-            glDrawArrays(GL_TRIANGLES, 0, flatVertices.size());
+                // Vertex positions
+                glEnableVertexAttribArray(0);
+                glBindBuffer(GL_ARRAY_BUFFER, vertexBufferIDs[m]);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
+                // UVs
+                if (uvBufferIDs[m] != 0)
+                {
+                    glEnableVertexAttribArray(1);
+                    glBindBuffer(GL_ARRAY_BUFFER, uvBufferIDs[m]);
+                    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+                }
+                else
+                {
+                    glDisableVertexAttribArray(1);
+                }
+
+                // Bind texture aan unit 0
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, textureIDs[m]);
+
+                // Teken de driehoeken van het materiaal
+                GLsizei count = static_cast<GLsizei>(flatVerticesPerMaterial[m].size());
+                glDrawArrays(GL_TRIANGLES, 0, count);
+
+                glDisableVertexAttribArray(0);
+                if (uvBufferIDs[m] != 0)
+                    glDisableVertexAttribArray(1);
+            }
 
             // Swap buffer naar scherm
             SDL_GL_SwapWindow(gWindow);
