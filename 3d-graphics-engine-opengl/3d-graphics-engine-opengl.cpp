@@ -86,10 +86,19 @@ int main(int argc, char* args[])
 {
     int exitCode{ 0 };
 
+    // Fix pad errors door absolute paths te gebruiken
+    std::filesystem::path exePath = std::filesystem::absolute(args[0]);
+    std::filesystem::path baseDir = exePath.parent_path();
+
+    std::filesystem::path vertexPath = baseDir / "vertex_shader.vert";
+    std::filesystem::path fragmentPath = baseDir / "fragment_shader.frag";
+
 	std::string filePath; // Pad naar OBJ bestand uit command line argument halen
     if (argc > 1) filePath = args[1];
     else {
         std::cout << "Geen OBJ bestand opgegeven via command line arguments.\n";
+        std::cout << "Druk op een toets om af te sluiten.\n";
+        system("pause");
         return 1;
     }
 
@@ -198,7 +207,7 @@ int main(int argc, char* args[])
         }
 
         // Laad de shader in een shader program en sla de ID op.
-        GLuint programID = LoadShaders("vertex_shader.vert", "fragment_shader.frag");
+        GLuint programID = LoadShaders(vertexPath.string().c_str(), fragmentPath.string().c_str());
 		// Krijg de locatie van de uniform variabele MVP in de shader
         GLint MatrixID = glGetUniformLocation(programID, "MVP");
 
@@ -287,6 +296,9 @@ int main(int argc, char* args[])
 
     //Clean up
     close();
+
+    std::cout << "Druk op een toets om af te sluiten.\n";
+    system("pause");
 
     return exitCode;
 }
