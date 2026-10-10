@@ -7,6 +7,7 @@
 #include <SDL3/SDL_image.h>
 #include <algorithm>
 #include <iostream>
+#include <filesystem>
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
@@ -21,13 +22,6 @@ constexpr int kScreenHeight{ 480 };
 SDL_Window* gWindow{ nullptr };
 
 SDL_GLContext glContext;
-
-ObjData objData = loadObjFile("C:\\Users\\s032010061601\\Downloads\\testobj\\capsule.obj");
-std::vector<glm::vec3> vertices = objData.vertices;
-std::vector<ObjFace> faces = objData.faces;
-std::vector<glm::vec2> uvs = objData.textureCoords;
-std::vector<glm::vec3> normals = objData.normals;
-std::vector<Material> materials = objData.materials;
 
 bool init()
 {
@@ -92,6 +86,15 @@ int main(int argc, char* args[])
 {
     int exitCode{ 0 };
 
+	std::string filePath; // Pad naar OBJ bestand uit command line argument halen
+    if (argc > 1) filePath = args[1];
+    else {
+        std::cout << "Geen OBJ bestand opgegeven via command line arguments.\n";
+        return 1;
+    }
+
+	std::string fileName = std::filesystem::path(filePath).filename().string();
+	std::cout << "OBJ bestand: " << fileName << "\n";
     //Initialiseren
     if (init() == false)
     {
@@ -100,6 +103,14 @@ int main(int argc, char* args[])
     }
     else
     {
+        // Laad OBJ file
+        ObjData objData = loadObjFile(filePath);
+        std::vector<glm::vec3> vertices = objData.vertices;
+        std::vector<ObjFace> faces = objData.faces;
+        std::vector<glm::vec2> uvs = objData.textureCoords;
+        std::vector<glm::vec3> normals = objData.normals;
+        std::vector<Material> materials = objData.materials;
+
         bool quit{ false };
 
         SDL_Event e;
@@ -151,6 +162,7 @@ int main(int argc, char* args[])
                 glGenBuffers(1, &vertexBufferIDs[m]);
                 glBindBuffer(GL_ARRAY_BUFFER, vertexBufferIDs[m]);
                 glBufferData(GL_ARRAY_BUFFER, flatVerticesPerMaterial[m].size() * sizeof(glm::vec3), flatVerticesPerMaterial[m].data(), GL_STATIC_DRAW);
+                std::cout << "VBO aangemaakt met id: " << std::to_string(vertexBufferIDs[m]) << "\n";
             }
 
             if (!flatUVsPerMaterial[m].empty())
@@ -159,6 +171,7 @@ int main(int argc, char* args[])
                 glGenBuffers(1, &uvBufferIDs[m]);
                 glBindBuffer(GL_ARRAY_BUFFER, uvBufferIDs[m]);
                 glBufferData(GL_ARRAY_BUFFER, flatUVsPerMaterial[m].size() * sizeof(glm::vec2), flatUVsPerMaterial[m].data(), GL_STATIC_DRAW);
+                std::cout << "VBO aangemaakt met id: " << std::to_string(uvBufferIDs[m]) << "\n";
             }
 
             // Maak een GL texture aan op basis van de diffuse texture van het materiaal
@@ -181,6 +194,7 @@ int main(int argc, char* args[])
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			std::cout << "Texture aangemaakt met id: " << std::to_string(textureIDs[m]) << "\n";
         }
 
         // Laad de shader in een shader program en sla de ID op.
@@ -227,7 +241,8 @@ int main(int argc, char* args[])
 			// Krijg location van textureSampler uniform in fragment shader en bind de texture (unit 0) aan deze uniform
             GLint samplerID = glGetUniformLocation(programID, "textureSampler");
             if (samplerID != -1)
-                glUniform1i(samplerID, 0);
+                // Als -1 bestaat de uniform niet in de shader.
+                glUniform1i(samplerID, 0); // Zet op 0.
 
             // Per materiaal: bind VBOs en texture en teken
             for (size_t m = 0; m < vertexBufferIDs.size(); ++m)
