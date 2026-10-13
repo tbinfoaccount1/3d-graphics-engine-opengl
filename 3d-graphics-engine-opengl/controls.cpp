@@ -18,8 +18,7 @@ glm::mat4 getProjectionMatrix() {
 	return ProjectionMatrix;
 }
 
-
-// Beginpositie: +Z
+// Beginpositie van de camera
 glm::vec3 position = glm::vec3(0, 0, 5);
 // Beginhoek horizontaal : naar -Z
 float horizontalAngle = 3.14f;
@@ -103,4 +102,8 @@ void computeMatricesFromInputs() {
 	);
 
 	lastTime = currentTime;
+}
+
+glm::vec3 getCameraPosition() {
+	return position;
 }
