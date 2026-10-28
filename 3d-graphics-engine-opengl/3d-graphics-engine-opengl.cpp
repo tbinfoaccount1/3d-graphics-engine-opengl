@@ -129,6 +129,7 @@ int main(int argc, char* args[])
         std::vector<glm::vec2> uvs = objData.textureCoords;
         std::vector<glm::vec3> normals = objData.normals;
         std::vector<Material> materials = objData.materials;
+        calculateTangents(objData);
 
         bool quit{ false };
 
@@ -150,6 +151,8 @@ int main(int argc, char* args[])
         std::vector<std::vector<glm::vec3>> flatVerticesPerMaterial(materialCount); // Lijst van materialen, met elk materiaal een lijst van vertices)
         std::vector<std::vector<glm::vec2>> flatUVsPerMaterial(materialCount); // Hetzelfde voor UVs
         std::vector<std::vector<glm::vec3>> flatNormalsPerMaterial(materialCount); // Hetzelfde voor normals
+		std::vector<std::vector<glm::vec3>> flatTangentsPerMaterial(materialCount); // Hetzelfde voor tangents
+		std::vector<std::vector<glm::vec3>> flatBitangentsPerMaterial(materialCount); // Hetzelfde voor bitangents
 
         // Per materiaal
         for (const auto& face : objData.faces)
@@ -159,7 +162,7 @@ int main(int argc, char* args[])
                 materialIndex = 0;
             for (size_t i = 0; i < face.vertexIndices.size(); ++i)
             {
-                // Per vertex van de face, push de vertex, UV en normal naar de juiste flat vector
+                // Per vertex van de face, push de vertex, UV, normal en tangents naar de juiste flat vector
                 flatVerticesPerMaterial[materialIndex].push_back(objData.vertices[face.vertexIndices[i]]);
                 if (!objData.textureCoords.empty() && !face.textureCoordIndices.empty())
                     flatUVsPerMaterial[materialIndex].push_back(objData.textureCoords[face.textureCoordIndices[i]]);
@@ -169,6 +172,8 @@ int main(int argc, char* args[])
                     flatNormalsPerMaterial[materialIndex].push_back(objData.normals[face.normalIndices[i]]);
                 else
                     flatNormalsPerMaterial[materialIndex].push_back(glm::vec3{ 0.0f, 0.0f, 0.0f });
+				flatTangentsPerMaterial[materialIndex].push_back(face.tangents[i]);
+				flatBitangentsPerMaterial[materialIndex].push_back(face.bitangents[i]);
             }
         }
 
@@ -176,7 +181,10 @@ int main(int argc, char* args[])
         std::vector<GLuint> vertexBufferIDs(materialCount, 0);
         std::vector<GLuint> uvBufferIDs(materialCount, 0);
         std::vector<GLuint> normalBufferIDs(materialCount, 0);
+        std::vector<GLuint> tangentBufferIDs(materialCount, 0);
+        std::vector<GLuint> bitangentBufferIDs(materialCount, 0);
         std::vector<GLuint> textureIDs(materialCount, 0);
+		std::vector<GLuint> heightMapTextureIDs(materialCount, 0);
 
         // Definieer de contanten uit de material
         std::vector<glm::vec3> kaVector;
@@ -214,7 +222,25 @@ int main(int argc, char* args[])
                 std::cout << "VBO aangemaakt met id: " << std::to_string(normalBufferIDs[m]) << "\n";
             }
 
-            float nsValue = 32.0f;
+            if (!flatTangentsPerMaterial[m].empty())
+            {
+                // Zelfde voor tangents
+                glGenBuffers(1, &tangentBufferIDs[m]);
+                glBindBuffer(GL_ARRAY_BUFFER, tangentBufferIDs[m]);
+                glBufferData(GL_ARRAY_BUFFER, flatTangentsPerMaterial[m].size() * sizeof(glm::vec3), flatTangentsPerMaterial[m].data(), GL_STATIC_DRAW);
+                std::cout << "VBO aangemaakt met id: " << std::to_string(tangentBufferIDs[m]) << "\n";
+            }
+
+            if (!flatBitangentsPerMaterial[m].empty())
+            {
+                // Zelfde voor bitangents
+                glGenBuffers(1, &bitangentBufferIDs[m]);
+                glBindBuffer(GL_ARRAY_BUFFER, bitangentBufferIDs[m]);
+                glBufferData(GL_ARRAY_BUFFER, flatBitangentsPerMaterial[m].size() * sizeof(glm::vec3), flatBitangentsPerMaterial[m].data(), GL_STATIC_DRAW);
+                std::cout << "VBO aangemaakt met id: " << std::to_string(bitangentBufferIDs[m]) << "\n";
+            }
+
+			float nsValue = 32.0f;
             if (!materials.empty() && m < materials.size() && !materials[m].diffuseTexture.isEmpty())
             {
                 // Als het materiaal een diffuse texture heeft, upload ka/kd/ks en ns
@@ -253,6 +279,28 @@ int main(int argc, char* args[])
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
             std::cout << "Texture aangemaakt met id: " << std::to_string(textureIDs[m]) << "\n";
+
+            // Maak een GL texture aan op basis van de heightmap texture van het materiaal
+            glGenTextures(1, &heightMapTextureIDs[m]);
+            glBindTexture(GL_TEXTURE_2D, heightMapTextureIDs[m]);
+            if (m < materials.size() && !materials[m].bumpTexture.isEmpty())
+            {
+                // Als het materiaal een heightmap texture heeft, upload de pixels naar OpenGL
+                const Texture& tex = materials[m].bumpTexture;
+                // 32bit RGBA
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.width, tex.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex.pixels.data());
+            }
+            else
+            {
+                // Witte pixel als er geen texture is
+                unsigned char white[4] = { 255, 255, 255, 255 };
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
+            }
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            std::cout << "Texture aangemaakt met id: " << std::to_string(textureIDs[m]) << "\n";
         }
 
         // Laad de shader in een shader program en sla de ID op.
@@ -264,6 +312,7 @@ int main(int argc, char* args[])
         GLint projLoc = glGetUniformLocation(programID, "projection");
         GLint camPosLoc = glGetUniformLocation(programID, "camPos");
         GLint samplerLoc = glGetUniformLocation(programID, "textureSampler");
+		GLint heightMapSamplerLoc = glGetUniformLocation(programID, "heightMapSampler");
 
         GLint kaLoc = glGetUniformLocation(programID, "ka");
         GLint kdLoc = glGetUniformLocation(programID, "kd");
@@ -359,6 +408,30 @@ int main(int argc, char* args[])
                     glDisableVertexAttribArray(2);
                 }
 
+                // Tangents
+				if (tangentBufferIDs[m] != 0)
+				{
+					glEnableVertexAttribArray(3);
+					glBindBuffer(GL_ARRAY_BUFFER, tangentBufferIDs[m]);
+					glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+				}
+				else
+				{
+					glDisableVertexAttribArray(3);
+				}
+
+                // Bitangents 
+				if (bitangentBufferIDs[m] != 0)
+				{
+					glEnableVertexAttribArray(4);
+					glBindBuffer(GL_ARRAY_BUFFER, bitangentBufferIDs[m]);
+					glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+				}
+				else
+				{
+					glDisableVertexAttribArray(4);
+				}
+
                 // Stuur material uniforms naar shader
                 if (kaLoc != -1) glUniform3fv(kaLoc, 1, glm::value_ptr(kaVector[m]));
                 if (kdLoc != -1) glUniform3fv(kdLoc, 1, glm::value_ptr(kdVector[m]));
@@ -370,6 +443,11 @@ int main(int argc, char* args[])
                 glBindTexture(GL_TEXTURE_2D, textureIDs[m]);
                 if (samplerLoc != -1) glUniform1i(samplerLoc, 0);
 
+				// Bind bump map texture unit 1 and upload sampler uniform
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, heightMapTextureIDs[m]);
+				if (heightMapSamplerLoc != -1) glUniform1i(heightMapSamplerLoc, 1);
+
                 // Teken de driehoeken
                 GLsizei vertexCount = static_cast<GLsizei>(flatVerticesPerMaterial[m].size());
                 glDrawArrays(GL_TRIANGLES, 0, vertexCount);
@@ -378,6 +456,8 @@ int main(int argc, char* args[])
                 glDisableVertexAttribArray(0);
                 if (uvBufferIDs[m] != 0) glDisableVertexAttribArray(1);
                 if (normalBufferIDs[m] != 0) glDisableVertexAttribArray(2);
+                if (tangentBufferIDs[m] != 0) glDisableVertexAttribArray(3);
+                if (bitangentBufferIDs[m] != 0) glDisableVertexAttribArray(4);
             }
 
             // Swap buffer naar scherm

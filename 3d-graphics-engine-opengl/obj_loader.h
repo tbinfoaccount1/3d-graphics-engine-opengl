@@ -41,6 +41,9 @@ struct ObjFace
 	std::vector<int> textureCoordIndices;
 	std::vector<int> normalIndices;
 
+	glm::vec3 tangents[3]{ glm::vec3(0.0f)};
+	glm::vec3 bitangents[3]{ glm::vec3(0.0f)};
+
 	int materialIndex{ -1 };
 };
 
@@ -61,3 +64,5 @@ Texture loadTexture(const std::string& filename);
 void loadMtlFile(const std::string& filename, std::vector<Material>& materials);
 
 ObjData loadObjFile(const std::string& filename);
+
+void calculateTangents(ObjData& objData);
