@@ -113,6 +113,9 @@ void loadMtlFile(const std::string& filename, std::vector<Material>& materials)
 	std::string line;
 	while (std::getline(file, line))
 	{
+		int endOfIndentation = line.find_first_not_of(" \t");
+		line = line.substr(endOfIndentation);
+
 		if (line.starts_with("newmtl "))
 		{
 			Material material;
